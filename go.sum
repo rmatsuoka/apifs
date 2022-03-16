@@ -1,0 +1,4 @@
+9fans.net/go v0.0.4 h1:g7K+b5I1PlSBFLnjuco3LAx5boK39UUl0Gsrmw6Gl2U=
+9fans.net/go v0.0.4/go.mod h1:lfPdxjq9v8pVQXUMBCx5EO5oLXWQFlKRQgs1kEkjoIM=
+github.com/rmatsuoka/ya9p v0.0.0-20220207131541-b0928e7a54ac h1:1B2HnI296umscamLSKjKa/wPytIY6lkM9xPHVaFf3bU=
+github.com/rmatsuoka/ya9p v0.0.0-20220207131541-b0928e7a54ac/go.mod h1:gYFwsVt2GQ0wOL3sSO+WttfuvDKhd5atV8btgdqmGOk=
