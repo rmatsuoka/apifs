@@ -5,33 +5,45 @@ import (
 	"io/fs"
 )
 
-type Dir struct {
-	DirName string
-	Nodes   []Node
+type Dir map[string]Node
+
+func (d Dir) Open(int) (SemiFile, error) { return newdirFile(d), nil }
+func (d Dir) IsDir() bool                { return true }
+func (d Dir) Walk(path []string) (Node, error) {
+	if len(path) == 0 {
+		return d, nil
+	}
+	n, ok := d[path[0]]
+	if !ok {
+		return nil, fs.ErrNotExist
+	}
+	return n.Walk(path[1:])
 }
 
-func (d *Dir) Open(int) (fs.File, error) { return &dirFile{d: d}, nil }
-func (d *Dir) Name() string              { return d.DirName }
-func (d *Dir) IsDir() bool               { return true }
-func (d *Dir) Children() ([]Node, error) { return d.Nodes, nil }
+type ent struct {
+	name string
+	n    Node
+}
 
 type dirFile struct {
-	d      *Dir
+	ents   []ent
 	offset int
 }
 
-func (f *dirFile) Stat() (fs.FileInfo, error) {
-	return &info{name: f.d.DirName, isDir: true}, nil
+func newdirFile(d Dir) *dirFile {
+	f := new(dirFile)
+	f.ents = make([]ent, 0, len(d))
+	for k, v := range d {
+		f.ents = append(f.ents, ent{name: k, n: v})
+	}
+	return f
 }
-
-func (f *dirFile) Read(p []byte) (int, error) {
-	return 0, &fs.PathError{"read", f.d.DirName, ErrIsDir}
-}
-
-func (f *dirFile) Close() error { return nil }
+func (f *dirFile) Read(p []byte) (int, error)  { return 0, ErrIsDir }
+func (f *dirFile) Write(p []byte) (int, error) { return 0, ErrIsDir }
+func (f *dirFile) Close() error                { return nil }
 
 func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
-	l := len(f.d.Nodes) - f.offset
+	l := len(f.ents) - f.offset
 	if n > 0 && n < l {
 		l = n
 	}
@@ -45,8 +57,8 @@ func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 	e := make([]fs.DirEntry, 0, l)
 	for i := f.offset; i < l+f.offset; i++ {
 		e = append(e, &info{
-			name:  f.d.Nodes[i].Name(),
-			isDir: f.d.Nodes[i].IsDir(),
+			name:  f.ents[i].name,
+			isDir: f.ents[i].n.IsDir(),
 		})
 	}
 	f.offset += l

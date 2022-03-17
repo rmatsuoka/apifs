@@ -6,15 +6,14 @@ import (
 )
 
 type Event struct {
-	name string
-	f    func() (io.Reader, error)
+	f func() (io.Reader, error)
 }
 
-func NewEvent(name string, handler func() (io.Reader, error)) *Event {
-	return &Event{name: name, f: handler}
+func NewEvent(handler func() (io.Reader, error)) *Event {
+	return &Event{f: handler}
 }
 
-func (e *Event) Open(int) (fs.File, error) {
+func (e *Event) Open(int) (SemiFile, error) {
 	rwc, err := e.f()
 	if err != nil {
 		return nil, err
@@ -22,14 +21,21 @@ func (e *Event) Open(int) (fs.File, error) {
 	return &eventFile{e: e, rwc: rwc}, nil
 }
 
-func (e *Event) Name() string              { return e.name }
-func (e *Event) IsDir() bool               { return false }
-func (e *Event) Children() ([]Node, error) { return nil, ErrNotDir }
+func (e *Event) IsDir() bool { return false }
+func (e *Event) Walk(path []string) (Node, error) {
+	if len(path) != 0 {
+		return nil, ErrNotDir
+	}
+	return e, nil
+}
 
 type eventFile struct {
 	e   *Event
 	rwc io.Reader
 }
+
+func (f *eventFile) ReadDir(int) ([]fs.DirEntry, error) { return nil, ErrNotDir }
+func (f *eventFile) Read(p []byte) (int, error)         { return f.rwc.Read(p) }
 
 func (f *eventFile) Write(p []byte) (int, error) {
 	if w, ok := f.rwc.(io.Writer); ok {
@@ -39,17 +45,9 @@ func (f *eventFile) Write(p []byte) (int, error) {
 	}
 }
 
-func (f *eventFile) Read(p []byte) (int, error) {
-	return f.rwc.Read(p)
-}
-
 func (f *eventFile) Close() error {
 	if c, ok := f.rwc.(io.Closer); ok {
 		return c.Close()
 	}
 	return nil
-}
-
-func (f *eventFile) Stat() (fs.FileInfo, error) {
-	return &info{name: f.e.name}, nil
 }

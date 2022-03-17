@@ -2,8 +2,10 @@ package apifs
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"strings"
 )
 
@@ -14,50 +16,53 @@ var (
 )
 
 type Node interface {
-	Open(int) (fs.File, error)
-	Name() string
+	Open(int) (SemiFile, error)
 	IsDir() bool
-	Children() ([]Node, error)
+	Walk([]string) (Node, error)
 }
 
-type FS struct {
-	root *Dir
+type SemiFile interface {
+	io.Reader
+	io.Writer
+	io.Closer
+	ReadDir(int) ([]fs.DirEntry, error)
 }
 
-func NewFS(n ...Node) *FS {
-	return &FS{&Dir{DirName: ".", Nodes: n}}
-}
+type FS Dir
 
-func (f *FS) Open(name string) (fs.File, error) {
+func (f FS) Open(name string) (fs.File, error) {
 	return f.OpenFile(name, os.O_RDONLY, 0)
 }
 
-func (f *FS) OpenFile(name string, mode int, perm fs.FileMode) (fs.File, error) {
+func (f FS) OpenFile(name string, mode int, perm fs.FileMode) (fs.File, error) {
 	if !fs.ValidPath(name) {
-		return nil, fs.ErrInvalid
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
-		return f.root.Open(mode)
+		s, _ := Dir(f).Open(mode)
+		return &file{SemiFile: s, name: ".", isDir: true}, nil
 	}
-	n, err := namen(f.root, strings.Split(name, "/"))
+
+	path := strings.Split(name, "/")
+	n, err := Dir(f).Walk(path)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
-	return n.Open(mode)
+
+	var s SemiFile
+	s, err = n.Open(mode)
+	if err != nil {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
+	}
+	return &file{SemiFile: s, name: pathpkg.Base(name), isDir: n.IsDir()}, nil
 }
 
-func namen(n Node, path []string) (Node, error) {
-	if len(path) == 0 {
-		return n, nil
-	}
-	chd, err := n.Children()
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range chd {
-		if c.Name() == path[0] {
-			return namen(c, path[1:])
-		}
-	}
-	return nil, fs.ErrNotExist
+type file struct {
+	SemiFile
+	name  string
+	isDir bool
+}
+
+func (f *file) Stat() (fs.FileInfo, error) {
+	return &info{name: f.name, isDir: f.isDir}, nil
 }

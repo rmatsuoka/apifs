@@ -13,13 +13,19 @@ import (
 )
 
 func main() {
-	name := apifs.NewVar[string]("name", "glenda", func(p []byte) (string, error) {
+	name := apifs.NewVar[string]("glenda", func(p []byte) (string, error) {
 		return string(p), nil
 	})
-	hello := apifs.NewEvent("hello", func() (io.Reader, error) {
+	hello := apifs.NewEvent(func() (io.Reader, error) {
 		return strings.NewReader(fmt.Sprintf("Hello, %s!\n%v\n", name.Get(), time.Now())), nil
 	})
-	fs := apifs.NewFS(name, hello)
+	fs := apifs.FS{
+		"name":  name,
+		"hello": hello,
+		"dir": apifs.Dir{
+			"hello": hello,
+		},
+	}
 
 	listener, err := net.Listen("tcp", "localhost:8000")
 	if err != nil {
