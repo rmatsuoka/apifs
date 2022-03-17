@@ -22,7 +22,7 @@ func NewVar[T any](name string, init T, unmarshal func([]byte) (T, error)) *Var[
 func (v *Var[T]) Open(int) (fs.File, error) {
 	return &varFile[T]{
 		v: v,
-		r: strings.NewReader(fmt.Sprint(v.v)),
+		r: strings.NewReader(fmt.Sprint(v.Get())),
 		w: new(bytes.Buffer),
 	}, nil
 }

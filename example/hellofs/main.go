@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
+	"log"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/rmatsuoka/apifs"
+	"github.com/rmatsuoka/ya9p"
 )
 
 func main() {
@@ -19,15 +21,15 @@ func main() {
 	})
 	fs := apifs.NewFS(name, hello)
 
-	f, _ := fs.Open("hello")
-	io.Copy(os.Stdout, f)
-	f.Close()
-
-	f, _ = fs.Open("name")
-	fmt.Fprint(f.(io.Writer), "rmatsuoka")
-	f.Close()
-
-	f, _ = fs.Open("hello")
-	io.Copy(os.Stdout, f)
-	f.Close()
+	listener, err := net.Listen("tcp", "localhost:8000")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Print(err)
+		}
+		go ya9p.ServeFS(conn, fs)
+	}
 }
