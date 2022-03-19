@@ -2,7 +2,6 @@ package apifs
 
 import (
 	"errors"
-	"io"
 	"io/fs"
 	"os"
 	pathpkg "path"
@@ -16,53 +15,61 @@ var (
 )
 
 type Node interface {
-	Open(int) (SemiFile, error)
-	IsDir() bool
-	Walk([]string) (Node, error)
+	Open(basename string, mode int) (fs.File, error)
 }
 
-type SemiFile interface {
-	io.Reader
-	io.Writer
-	io.Closer
-	ReadDir(int) ([]fs.DirEntry, error)
+type DirNode interface {
+	Node
+	Child(name string) (Node, error)
 }
 
-type FS Dir
-
-func (f FS) Open(name string) (fs.File, error) {
-	return f.OpenFile(name, os.O_RDONLY, 0)
+type FS struct {
+	root DirNode
 }
 
-func (f FS) OpenFile(name string, mode int, perm fs.FileMode) (fs.File, error) {
+func NewFS(root DirNode) *FS {
+	return &FS{root}
+}
+
+func (fsys *FS) Open(name string) (fs.File, error) {
+	return fsys.OpenFile(name, os.O_RDONLY, 0)
+}
+
+func (fsys *FS) OpenFile(name string, mode int, perm fs.FileMode) (fs.File, error) {
+	n, err := fsys.namen(name)
+	if err != nil {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
+	}
+
+	var f fs.File
+	f, err = n.Open(pathpkg.Base(name), mode)
+	if err != nil {
+		return f, &fs.PathError{Op: "open", Path: name, Err: err}
+	}
+	return f, nil
+}
+
+func (fsys *FS) namen(name string) (Node, error) {
 	if !fs.ValidPath(name) {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
+		return nil, fs.ErrInvalid
 	}
 	if name == "." {
-		s, _ := Dir(f).Open(mode)
-		return &file{SemiFile: s, name: ".", isDir: true}, nil
+		return fsys.root, nil
 	}
 
 	path := strings.Split(name, "/")
-	n, err := Dir(f).Walk(path)
-	if err != nil {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
+	var n Node = fsys.root
+	for _, p := range path {
+		d, ok := n.(DirNode)
+		if !ok {
+			return nil, fs.ErrNotExist
+		}
+
+		var err error
+		n, err = d.Child(p)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	var s SemiFile
-	s, err = n.Open(mode)
-	if err != nil {
-		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
-	}
-	return &file{SemiFile: s, name: pathpkg.Base(name), isDir: n.IsDir()}, nil
-}
-
-type file struct {
-	SemiFile
-	name  string
-	isDir bool
-}
-
-func (f *file) Stat() (fs.FileInfo, error) {
-	return &info{name: f.name, isDir: f.isDir}, nil
+	return n, nil
 }

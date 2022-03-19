@@ -26,7 +26,7 @@ func (i *info) Type() fs.FileMode {
 
 func (i *info) Mode() fs.FileMode {
 	if i.isDir {
-		return fs.ModeDir | 0444
+		return fs.ModeDir | 0555
 	}
 	return 0666
 }

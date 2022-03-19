@@ -13,20 +13,22 @@ import (
 )
 
 func main() {
-	name := apifs.NewVar[string]("glenda", func(p []byte) (string, error) {
+	root := apifs.NewDir()
+	name := apifs.NewVal[string]("glenda", func(p []byte) (string, error) {
 		return string(p), nil
 	})
+	root.Add("name", name)
+
 	hello := apifs.NewEvent(func() (io.Reader, error) {
 		return strings.NewReader(fmt.Sprintf("Hello, %s!\n%v\n", name.Get(), time.Now())), nil
 	})
-	fs := apifs.FS{
-		"name":  name,
-		"hello": hello,
-		"dir": apifs.Dir{
-			"hello": hello,
-		},
-	}
+	root.Add("hello", hello)
 
+	dir1 := apifs.NewDir()
+	dir1.Add("name", name)
+	root.Add("dir1", dir1)
+
+	fsys := apifs.NewFS(root)
 	listener, err := net.Listen("tcp", "localhost:8000")
 	if err != nil {
 		log.Fatal(err)
@@ -36,6 +38,6 @@ func main() {
 		if err != nil {
 			log.Print(err)
 		}
-		go ya9p.ServeFS(conn, fs)
+		go ya9p.ServeFS(conn, fsys)
 	}
 }

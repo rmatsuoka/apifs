@@ -1,23 +1,38 @@
 package apifs
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
+	"sync"
 )
 
-type Dir map[string]Node
+type Dir struct {
+	m *sync.Map
+}
 
-func (d Dir) Open(int) (SemiFile, error) { return newdirFile(d), nil }
-func (d Dir) IsDir() bool                { return true }
-func (d Dir) Walk(path []string) (Node, error) {
-	if len(path) == 0 {
-		return d, nil
-	}
-	n, ok := d[path[0]]
+func NewDir() *Dir {
+	return &Dir{new(sync.Map)}
+}
+
+func (d *Dir) Open(name string, mode int) (fs.File, error) {
+	return newdirFile(d, name), nil
+}
+
+func (d *Dir) Child(name string) (Node, error) {
+	n, ok := d.m.Load(name)
 	if !ok {
 		return nil, fs.ErrNotExist
 	}
-	return n.Walk(path[1:])
+	return n.(Node), nil
+}
+
+func (d *Dir) Add(name string, n Node) error {
+	_, ok := d.m.LoadOrStore(name, n)
+	if ok {
+		return fmt.Errorf("(*Dir).Add: %s has already existed", name)
+	}
+	return nil
 }
 
 type ent struct {
@@ -26,21 +41,27 @@ type ent struct {
 }
 
 type dirFile struct {
-	ents   []ent
+	ents   []*ent
 	offset int
+	name   string
 }
 
-func newdirFile(d Dir) *dirFile {
-	f := new(dirFile)
-	f.ents = make([]ent, 0, len(d))
-	for k, v := range d {
-		f.ents = append(f.ents, ent{name: k, n: v})
-	}
+func newdirFile(d *Dir, name string) *dirFile {
+	f := &dirFile{name: name}
+	d.m.Range(func(k, v any) bool {
+		name := k.(string)
+		n := v.(Node)
+		f.ents = append(f.ents, &ent{name: name, n: n})
+		return true
+	})
 	return f
 }
-func (f *dirFile) Read(p []byte) (int, error)  { return 0, ErrIsDir }
-func (f *dirFile) Write(p []byte) (int, error) { return 0, ErrIsDir }
-func (f *dirFile) Close() error                { return nil }
+
+func (f *dirFile) Read(p []byte) (int, error) { return 0, ErrIsDir }
+func (f *dirFile) Close() error               { return nil }
+func (f *dirFile) Stat() (fs.FileInfo, error) {
+	return &info{name: f.name, isDir: true}, nil
+}
 
 func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 	l := len(f.ents) - f.offset
@@ -56,9 +77,10 @@ func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 
 	e := make([]fs.DirEntry, 0, l)
 	for i := f.offset; i < l+f.offset; i++ {
+		_, ok := f.ents[i].n.(DirNode)
 		e = append(e, &info{
 			name:  f.ents[i].name,
-			isDir: f.ents[i].n.IsDir(),
+			isDir: ok,
 		})
 	}
 	f.offset += l
