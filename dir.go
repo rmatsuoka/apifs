@@ -8,11 +8,11 @@ import (
 )
 
 type Dir struct {
-	m *sync.Map
+	m sync.Map
 }
 
 func NewDir() *Dir {
-	return &Dir{new(sync.Map)}
+	return &Dir{}
 }
 
 func (d *Dir) Open(name string, mode int) (fs.File, error) {
@@ -60,7 +60,7 @@ func newdirFile(d *Dir, name string) *dirFile {
 func (f *dirFile) Read(p []byte) (int, error) { return 0, ErrIsDir }
 func (f *dirFile) Close() error               { return nil }
 func (f *dirFile) Stat() (fs.FileInfo, error) {
-	return &info{name: f.name, isDir: true}, nil
+	return &info{name: f.name, mode: fs.ModeDir | 0555}, nil
 }
 
 func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
@@ -77,10 +77,9 @@ func (f *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 
 	e := make([]fs.DirEntry, 0, l)
 	for i := f.offset; i < l+f.offset; i++ {
-		_, ok := f.ents[i].n.(DirNode)
-		e = append(e, &info{
-			name:  f.ents[i].name,
-			isDir: ok,
+		e = append(e, &dirEntry{
+			name: f.ents[i].name,
+			n:    f.ents[i].n,
 		})
 	}
 	f.offset += l

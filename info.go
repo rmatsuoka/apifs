@@ -2,31 +2,46 @@ package apifs
 
 import (
 	"io/fs"
+	"os"
 	"time"
 )
 
 type info struct {
-	name  string
-	isDir bool
+	name string
+	mode fs.FileMode
 }
 
-func (i *info) Name() string               { return i.name }
-func (i *info) Size() int64                { return 0 }
-func (i *info) ModTime() time.Time         { return time.Unix(0, 0) }
-func (i *info) IsDir() bool                { return i.isDir }
-func (i *info) Info() (fs.FileInfo, error) { return i, nil }
-func (i *info) Sys() any                   { return nil }
+func (i *info) Name() string       { return i.name }
+func (i *info) Size() int64        { return 0 }
+func (i *info) ModTime() time.Time { return time.Unix(0, 0) }
+func (i *info) IsDir() bool        { return i.mode.IsDir() }
+func (i *info) Mode() fs.FileMode  { return i.mode }
+func (i *info) Sys() any           { return nil }
 
-func (i *info) Type() fs.FileMode {
-	if i.isDir {
+type dirEntry struct {
+	name string
+	n    Node
+}
+
+func (d *dirEntry) Name() string { return d.name }
+
+func (d *dirEntry) IsDir() bool {
+	_, ok := d.n.(DirNode)
+	return ok
+}
+
+func (d *dirEntry) Type() fs.FileMode {
+	_, ok := d.n.(DirNode)
+	if ok {
 		return fs.ModeDir
 	}
 	return 0
 }
 
-func (i *info) Mode() fs.FileMode {
-	if i.isDir {
-		return fs.ModeDir | 0555
+func (d *dirEntry) Info() (fs.FileInfo, error) {
+	f, err := d.n.Open(d.name, os.O_RDONLY)
+	if err != nil {
+		return nil, err
 	}
-	return 0666
+	return f.Stat()
 }

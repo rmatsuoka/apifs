@@ -57,7 +57,7 @@ func (f *valFile[T]) Write(p []byte) (int, error) {
 }
 
 func (f *valFile[T]) Stat() (fs.FileInfo, error) {
-	return &info{name: f.name}, nil
+	return &info{name: f.name, mode: 0666}, nil
 }
 
 func (f *valFile[T]) Close() error {
