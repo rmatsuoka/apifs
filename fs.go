@@ -23,6 +23,22 @@ type DirNode interface {
 	Child(name string) (Node, error)
 }
 
+type StatNode interface {
+	Node
+	Stat(basename string) (fs.FileInfo, error)
+}
+
+func stat(n Node, basename string) (fs.FileInfo, error) {
+	if n, ok := n.(StatNode); ok {
+		return n.Stat(basename)
+	}
+	f, err := n.Open(basename, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	return f.Stat()
+}
+
 type FS struct {
 	root DirNode
 }
@@ -47,6 +63,14 @@ func (fsys *FS) OpenFile(name string, mode int, perm fs.FileMode) (fs.File, erro
 		return f, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
 	return f, nil
+}
+
+func (fsys *FS) Stat(name string) (fs.FileInfo, error) {
+	n, err := fsys.namen(name)
+	if err != nil {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
+	}
+	return stat(n, pathpkg.Base(name))
 }
 
 func (fsys *FS) namen(name string) (Node, error) {

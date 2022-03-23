@@ -3,7 +3,6 @@ package apifs
 import (
 	"io"
 	"io/fs"
-	"sync"
 )
 
 type Event struct {
@@ -15,22 +14,23 @@ func NewEvent(handler func() (io.Reader, error)) *Event {
 }
 
 func (e *Event) Open(name string, mode int) (fs.File, error) {
-	return &eventFile{e: e, name: name}, nil
+	rc, err := e.f()
+	if err != nil {
+		return nil, err
+	}
+	return &eventFile{rc: rc, name: name}, nil
+}
+
+func (e *Event) Stat(name string) (fs.FileInfo, error) {
+	return &info{name: name, mode: 0444}, nil
 }
 
 type eventFile struct {
-	e    *Event
-	o    sync.Once
 	rc   io.Reader
-	err  error
 	name string
 }
 
 func (f *eventFile) Read(p []byte) (int, error) {
-	f.o.Do(func() { f.rc, f.err = f.e.f() })
-	if f.err != nil {
-		return 0, f.err
-	}
 	return f.rc.Read(p)
 }
 func (f *eventFile) Stat() (fs.FileInfo, error) {

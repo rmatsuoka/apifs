@@ -11,7 +11,7 @@ import (
 type Val[T any] struct {
 	val T
 	f   func([]byte) (T, error)
-	sync.RWMutex
+	mu  sync.RWMutex
 }
 
 func NewVal[T any](init T, unmarshal func([]byte) (T, error)) *Val[T] {
@@ -27,15 +27,19 @@ func (v *Val[T]) Open(name string, mode int) (fs.File, error) {
 	}, nil
 }
 
+func (v *Val[T]) Stat(name string) (fs.FileInfo, error) {
+	return &info{name: name, mode: 0666}, nil
+}
+
 func (v *Val[T]) Get() T {
-	v.RLock()
-	defer v.RUnlock()
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	return v.val
 }
 
 func (v *Val[T]) Set(n T) {
-	v.Lock()
-	defer v.Unlock()
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	v.val = n
 }
 

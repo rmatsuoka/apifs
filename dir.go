@@ -27,12 +27,20 @@ func (d *Dir) Child(name string) (Node, error) {
 	return n.(Node), nil
 }
 
-func (d *Dir) Add(name string, n Node) error {
+func (d *Dir) Stat(name string) (fs.FileInfo, error) {
+	return &info{name: name, mode: fs.ModeDir | 0555}, nil
+}
+
+func (d *Dir) Mknod(name string, n Node) error {
 	_, ok := d.m.LoadOrStore(name, n)
 	if ok {
 		return fmt.Errorf("(*Dir).Add: %s has already existed", name)
 	}
 	return nil
+}
+
+func (d *Dir) Remove(name string) {
+	d.m.Delete(name)
 }
 
 type ent struct {

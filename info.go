@@ -2,7 +2,6 @@ package apifs
 
 import (
 	"io/fs"
-	"os"
 	"time"
 )
 
@@ -39,9 +38,5 @@ func (d *dirEntry) Type() fs.FileMode {
 }
 
 func (d *dirEntry) Info() (fs.FileInfo, error) {
-	f, err := d.n.Open(d.name, os.O_RDONLY)
-	if err != nil {
-		return nil, err
-	}
-	return f.Stat()
+	return stat(d.n, d.name)
 }
