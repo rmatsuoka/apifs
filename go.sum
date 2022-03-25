@@ -2,3 +2,5 @@
 9fans.net/go v0.0.4/go.mod h1:lfPdxjq9v8pVQXUMBCx5EO5oLXWQFlKRQgs1kEkjoIM=
 github.com/rmatsuoka/ya9p v0.0.0-20220316081458-050aa355fef4 h1:HUUzRJVWJbNNKo3M8HB3u3jIwzur6JQBztbjZ0aWG+E=
 github.com/rmatsuoka/ya9p v0.0.0-20220316081458-050aa355fef4/go.mod h1:gYFwsVt2GQ0wOL3sSO+WttfuvDKhd5atV8btgdqmGOk=
+github.com/rmatsuoka/ya9p v0.0.0-20220317042423-ed9e28121fbc h1:cc0c2vvPfko/gMvPOgMYGbAmGxxlamjV29LioQ8SrUM=
+github.com/rmatsuoka/ya9p v0.0.0-20220317042423-ed9e28121fbc/go.mod h1:gYFwsVt2GQ0wOL3sSO+WttfuvDKhd5atV8btgdqmGOk=
