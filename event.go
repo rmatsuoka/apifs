@@ -14,11 +14,12 @@ func NewEvent(handler func() (io.Reader, error)) *Event {
 }
 
 func (e *Event) Open(name string, mode int) (fs.File, error) {
-	rc, err := e.f()
-	if err != nil {
-		return nil, err
+	var rc io.Reader
+	var err error
+	if e.f != nil {
+		rc, err = e.f()
 	}
-	return &eventFile{rc: rc, name: name}, nil
+	return &eventFile{rc: rc, name: name}, err
 }
 
 func (e *Event) Stat(name string) (fs.FileInfo, error) {
@@ -31,8 +32,12 @@ type eventFile struct {
 }
 
 func (f *eventFile) Read(p []byte) (int, error) {
+	if f.rc == nil {
+		return 0, io.EOF
+	}
 	return f.rc.Read(p)
 }
+
 func (f *eventFile) Stat() (fs.FileInfo, error) {
 	return &info{name: f.name, mode: 0444}, nil
 }
